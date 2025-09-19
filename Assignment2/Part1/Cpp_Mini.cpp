@@ -18,11 +18,10 @@ int main() {
     for (int i = 0; i < 3; ++i) bad.push_back([&i]{ return i; });
     for (int i = 0; i < 3; ++i) good.push_back([i]{ return i; });
 
-    auto add5 = make_adder(5);
-    auto r1 = add5(10); std::cout << r1.first << " " << r1.second << "\n"; // 15 1
-    auto r2 = add5(2);  std::cout << r2.first << " " << r2.second << "\n"; // 7  2
+    auto add7 = make_adder(7);
+    auto r1 = add7(10); std::cout << r1.first << " " << r1.second << "\n"; // 17 1
+    auto r2 = add7(2);  std::cout << r2.first << " " << r2.second << "\n"; // 9  2
 
     for (auto &f : bad)  std::cout << f() << " "; std::cout << "\n"; // 3 3 3 (pitfall)
     for (auto &f : good) std::cout << f() << " "; std::cout << "\n"; // 0 1 2 (correct)
 }
-
