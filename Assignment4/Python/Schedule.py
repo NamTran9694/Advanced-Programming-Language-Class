@@ -5,7 +5,6 @@ DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 SHIFTS = ["morning", "afternoon", "evening"]
 
 MIN_PER_SHIFT = 2
-MAX_PER_SHIFT = 3         # Used to define "full"
 RANDOM_SEED = 42          # Reproducible random choices
 random.seed(RANDOM_SEED)
 
@@ -23,103 +22,111 @@ class Employee:
     def can_work(self, day):
         return self.assigned[day] is None and self.days_worked < 5
 
+
 def schedule(employees):
+    """
+    constraints:
+      - ≤1 shift per day per employee
+      - ≤5 days per employee per week
+    """
+    # Feasibility check (with exact-min plan, total demand is fixed)
+    total_required = len(DAYS) * len(SHIFTS) * MIN_PER_SHIFT   # 42
+    total_capacity = len(employees) * 5                        # ≤5 days/emp
+    if total_capacity < total_required:
+        print(f"[WARN] Infeasible: need {total_required} person-shifts but only have "
+              f"{total_capacity}. Add {((total_required + 4)//5) - len(employees)}+ employees "
+              f"or relax the 5-day limit.")
+
     # schedule[day][shift] = list of employee names
     schedule = {d: {s: [] for s in SHIFTS} for d in DAYS}
 
-    # Helpers
-    def has_capacity(day, shift):
-        return len(schedule[day][shift]) < MAX_PER_SHIFT
+    def can_work(emp, day):
+        return emp.assigned[day] is None and emp.days_worked < 5
 
-    def assign(day, shift, emp: Employee):
+    def assign(day, shift, emp):
         schedule[day][shift].append(emp.name)
         emp.assigned[day] = shift
         emp.days_worked += 1
 
-    # 1) First pass: assign by ranked preferences, capping at MAX_PER_SHIFT.
-    #    If too many want the same shift, randomly keep up to capacity; others go to conflict.
-    next_day_conflicts = {d: deque() for d in DAYS}
-
-    for day in DAYS:
-        # Collect (emp, ranked_prefs_for_day)
-        day_interested = [(e, e.prefs.get(day, [])) for e in employees if e.can_work(day) and e.prefs.get(day)]
-        # Try in ranked rounds: first choices round, second choices round, etc.
-        max_rank_len = max((len(p) for _, p in day_interested), default=0)
-        for rank in range(max_rank_len):
-            # For each shift, gather candidates whose rank-th choice is this shift
-            for shift in SHIFTS:
-                candidates = [e for (e, p) in day_interested
-                              if len(p) > rank and p[rank] == shift and e.can_work(day)]
-                if not candidates:
-                    continue
-                # If capacity available, take up to space; overflow becomes conflicts (to be tried later)
-                space = MAX_PER_SHIFT - len(schedule[day][shift])
-                if space <= 0:
-                    # Everyone here conflicts for this shift at this rank; they'll try next ranks/day
-                    continue
-                if len(candidates) <= space:
-                    for emp in candidates:
-                        if e_can := emp.can_work(day):
-                            assign(day, shift, emp)
-                else:
-                    chosen = set(random.sample(candidates, space))
-                    for emp in candidates:
-                        if emp in chosen and emp.can_work(day):
-                            assign(day, shift, emp)
-                        # Unchosen remain eligible to try lower-ranked choices later
-
-        # Any still-unassigned who had a preference today become conflicts to try next day
-        for e, p in day_interested:
-            if e.assigned[day] is None:
-                next_day_conflicts[day].append(e)
-
-        # 2) Bring forward conflicts from the previous day to try "next-day" resolution (today)
-        prev_day = DAYS[(DAYS.index(day) - 1) % 7]
-        carry = list(next_day_conflicts[prev_day])
-        next_day_conflicts[prev_day].clear()
-        for emp in carry:
-            if not emp.can_work(day):
-                continue
-            # Try any shift today by ranked preferences first, then any available
-            prefs_today = emp.prefs.get(day, [])
-            placed = False
-            # Try ranked
-            for shift in prefs_today:
-                if has_capacity(day, shift):
-                    assign(day, shift, emp)
-                    placed = True
+    def fairness_pick(pool, k):
+        """
+        Pick up to k employees from pool, preferring the fewest days_worked;
+        random among ties. Returns a list (unique) of chosen employees.
+        """
+        if not pool or k <= 0:
+            return []
+        # Sort by days_worked (ascending)
+        pool_sorted = sorted(pool, key=lambda e: e.days_worked)
+        # Build tiers of equal days_worked and draw from tiers until k filled
+        chosen = []
+        i = 0
+        while i < len(pool_sorted) and len(chosen) < k:
+            tier_days = pool_sorted[i].days_worked
+            tier = []
+            while i < len(pool_sorted) and pool_sorted[i].days_worked == tier_days:
+                tier.append(pool_sorted[i])
+                i += 1
+            random.shuffle(tier)  # random within the fairness tier
+            for e in tier:
+                if len(chosen) == k:
                     break
-            # Try any shift if still not placed
-            if not placed:
-                for shift in SHIFTS:
-                    if has_capacity(day, shift):
-                        assign(day, shift, emp)
-                        placed = True
-                        break
-            # If still not placed, push conflict forward again
-            if not placed:
-                next_day_conflicts[day].append(emp)
+                chosen.append(e)
+        return chosen
 
-    # 3) Ensure minimum staffing: if shift has < MIN_PER_SHIFT, randomly fill from eligible employees
+    # For each day, fill each shift to the minimum using ranked preferences first
     for day in DAYS:
+        # Pre-compute maximum preference length that exists for this day among eligibles
+        def pref_list(emp):
+            return emp.prefs.get(day, [])
+
+        # We’ll fill each shift independently, but use the same ranked passes
         for shift in SHIFTS:
-            while len(schedule[day][shift]) < MIN_PER_SHIFT:
-                # Choose from employees who can work this day and not already assigned
-                candidates = [e for e in employees if e.can_work(day)]
-                if not candidates:
-                    break  # Cannot fill further
-                chosen = random.choice(candidates)
-                assign(day, shift, chosen)
+            needed = MIN_PER_SHIFT - len(schedule[day][shift])
+            if needed <= 0:
+                continue
+
+            # Ranked passes: rank 0, 1, 2, ...
+            max_rank = 0
+            for e in employees:
+                if can_work(e, day):
+                    max_rank = max(max_rank, len(pref_list(e)))
+
+            for rank in range(max_rank):
+                if needed <= 0:
+                    break
+                # Candidates: eligible AND rank-th preference equals this shift
+                candidates = [e for e in employees
+                              if can_work(e, day)
+                              and len(pref_list(e)) > rank
+                              and pref_list(e)[rank] == shift]
+                # Fairness: fewest days_worked first, random among ties
+                picks = fairness_pick(candidates, needed)
+                for emp in picks:
+                    assign(day, shift, emp)
+                needed -= len(picks)
+
+            if needed > 0:
+                # Fallback: any eligible (no preference for this shift today), still fair
+                fallback = [e for e in employees if can_work(e, day)]
+                picks = fairness_pick(fallback, needed)
+                for emp in picks:
+                    assign(day, shift, emp)
+                needed -= len(picks)
+
+            if needed > 0:
+                print(f"[WARN] {day} {shift}: staffed {MIN_PER_SHIFT - needed}/{MIN_PER_SHIFT} "
+                      f"(no eligible employees left under ≤5-days rule).")
 
     return schedule
 
 def print_schedule(schedule):
-    print("=== Final Weekly Schedule ===")
+    print("=== Final Weekly Schedule (min-only) ===")
     for day in DAYS:
         print(f"\n{day}:")
         for shift in SHIFTS:
             names = ", ".join(schedule[day][shift]) if schedule[day][shift] else "(none)"
             print(f"  {shift:<9}: {names}")
+
 
 if __name__ == "__main__":
     # ----- Example data (edit freely) -----
