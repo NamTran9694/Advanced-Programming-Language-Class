@@ -4,7 +4,7 @@
 
 ## Run
 cd python\
-python Schedule.py
+py Schedule.py
 
 ## What you’ll see
 * A weekly schedule printed to the console
