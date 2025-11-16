@@ -1,0 +1,30 @@
+| r1 r2 r3 rides d1 rider1 |
+
+r1 := StandardRide new.
+r1 initializeWithId: 'R1001' pickup: 'Downtown' drop: 'Airport' miles: 12.3.
+
+r2 := PremiumRide new.
+r2 initializeWithId: 'R1002' pickup: 'Mall' drop: 'Stadium' miles: 5.0.
+
+r3 := StandardRide new.
+r3 initializeWithId: 'R1003' pickup: 'Campus' drop: 'Museum' miles: 1.0.
+
+rides := { r1. r2. r3 }.
+
+Transcript show: '=== Ride Summary ==='; cr.
+rides do: [:each |
+    Transcript show: each rideDetails , ' | Fare: $' , each fare asString; cr ].
+
+d1 := Driver new.
+d1 initializeWithId: 'D01' name: 'Ava Brooks' rating: 4.93.
+d1 addRide: r1; addRide: r3.
+
+rider1 := Rider new.
+rider1 initializeWithId: 'U22' name: 'Nam Tran'.
+rider1 requestRide: r2.
+
+Transcript show: '=== Driver Info ==='; cr.
+d1 printRides.
+
+Transcript show: '=== Rider Info ==='; cr.
+rider1 viewRides.
