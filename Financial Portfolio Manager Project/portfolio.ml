@@ -1,7 +1,10 @@
+(* Basic Financial Portfolio Manager in OCaml *)
+
 (* 1. Portfolio Data Structure *)
+
 type stock = {
   symbol : string;
-  quantity : float;
+  quantity : int;
   purchase_price : float;
   current_price : float;
 }
@@ -9,111 +12,181 @@ type stock = {
 (* A portfolio is simply a list of stocks *)
 type portfolio = stock list
 
-(* Helper function to calculate gain/loss for a single stock *)
-let calculate_stock_gain_loss (s : stock) : float =
-  (s.current_price -. s.purchase_price) *. s.quantity
+(* 2. Helper / Utility Functions *)
+
+let stock_value (s : stock) : float =
+  float_of_int s.quantity *. s.current_price
+
+let stock_gain_loss (s : stock) : float =
+  float_of_int s.quantity *. (s.current_price -. s.purchase_price)
+
+(* Recursive search for a stock by symbol, returning an option *)
+let rec find_stock (sym : string) (p : portfolio) : stock option =
+  match p with
+  | [] -> None
+  | s :: rest ->
+      if String.uppercase_ascii s.symbol = String.uppercase_ascii sym then
+        Some s
+      else
+        find_stock sym rest
 
 (* 2. Basic Functionality *)
 
-(* Add Stock: Since lists are immutable, we return a new list with the stock added to the front *)
-let add_stock (p : portfolio) (s : stock) : portfolio =
-  s :: p
-
-(* Remove Stock: Recursive function to filter out the stock by symbol *)
-let rec remove_stock (p : portfolio) (target_symbol : string) : portfolio =
+(* Add a stock:
+   - If the symbol already exists, replace it with the new one.
+   - Otherwise, add it to the front of the list. *)
+let rec add_stock (new_stock : stock) (p : portfolio) : portfolio =
   match p with
-  | [] -> [] (* Base case: Empty list, return empty *)
-  | head :: tail ->
-      if head.symbol = target_symbol then
-        (* If symbol matches, skip this head and process the tail *)
-        remove_stock tail target_symbol
-      else
-        (* If no match, keep head and process the tail *)
-        head :: remove_stock tail target_symbol
+  | [] -> [ new_stock ]
+  | s :: rest ->
+      if String.uppercase_ascii s.symbol = String.uppercase_ascii new_stock.symbol
+      then new_stock :: rest
+      else s :: add_stock new_stock rest
 
-(* Update Price: Recursive function to find a stock and update its price *)
-(* Update Price: Recursive function to find a stock and update its price *)
-let rec update_price (p : portfolio) (target_symbol : string) (new_price : float) : portfolio =
+(* Remove a stock by symbol (if not found, portfolio stays unchanged) *)
+let rec remove_stock (sym : string) (p : portfolio) : portfolio =
   match p with
-  | [] -> [] (* Edge case: Stock not found, return empty list *)
-  | head :: tail ->
-      if head.symbol = target_symbol then
-        (* Found it: update price and keep the tail *)
-        { head with current_price = new_price } :: tail
-      else
-        (* Not found here: keep head, recurse on tail, AND PASS NEW_PRICE *)
-        head :: update_price tail target_symbol new_price  (* <--- FIXED HERE *)
+  | [] -> []
+  | s :: rest ->
+      if String.uppercase_ascii s.symbol = String.uppercase_ascii sym
+      then rest
+      else s :: remove_stock sym rest
 
-(* 3. Portfolio Calculations (Using Recursion) *)
-
-(* Total Portfolio Value: Recursive sum of current values *)
-let rec get_total_value (p : portfolio) : float =
+(* Update current price of a given symbol.
+   If the stock is not found, portfolio is returned unchanged. *)
+let rec update_price (sym : string) (new_price : float) (p : portfolio) : portfolio =
   match p with
-  | [] -> 0.0
-  | head :: tail ->
-      (head.quantity *. head.current_price) +. get_total_value tail
+  | [] -> []
+  | s :: rest ->
+      if String.uppercase_ascii s.symbol = String.uppercase_ascii sym
+      then { s with current_price = new_price } :: rest
+      else s :: update_price sym new_price rest
 
-(* Overall Gain/Loss: Recursive sum of gains/losses *)
-let rec get_overall_gain_loss (p : portfolio) : float =
+(* Recursive Calculations *)
+
+let rec total_portfolio_value (p : portfolio) : float =
   match p with
   | [] -> 0.0
-  | head :: tail ->
-      calculate_stock_gain_loss head +. get_overall_gain_loss tail
+  | s :: rest -> stock_value s +. total_portfolio_value rest
 
-(* 4. View Functionality *)
+let rec overall_gain_loss (p : portfolio) : float =
+  match p with
+  | [] -> 0.0
+  | s :: rest -> stock_gain_loss s +. overall_gain_loss rest
 
-(* Helper to print a single stock's details *)
-let print_stock (s : stock) =
-  let gain = calculate_stock_gain_loss s in
-  Printf.printf "Symbol: %s | Qty: %.2f | Buy: %.2f | Curr: %.2f | Gain/Loss: %.2f\n"
-    s.symbol s.quantity s.purchase_price s.current_price gain
+(* 3. String / Display Functions *)
 
-(* View Portfolio: Recursively print all stocks *)
-let rec view_portfolio (p : portfolio) : unit =
+let string_of_float2 (x : float) : string =
+  Printf.sprintf "%.2f" x
+
+let string_of_stock (s : stock) : string =
+  let value = stock_value s in
+  let gain = stock_gain_loss s in
+  Printf.sprintf
+    "Symbol: %s | Qty: %d | Buy: $%s | Current: $%s | Value: $%s | Gain/Loss: $%s"
+    s.symbol
+    s.quantity
+    (string_of_float2 s.purchase_price)
+    (string_of_float2 s.current_price)
+    (string_of_float2 value)
+    (string_of_float2 gain)
+
+let rec print_portfolio (p : portfolio) : unit =
   match p with
   | [] -> ()
-  | head :: tail ->
-      print_stock head;
-      view_portfolio tail
+  | s :: rest ->
+      Printf.printf "%s\n" (string_of_stock s);
+      print_portfolio rest
 
-(* 5. Main Execution Block (for Testing) *)
-let () =
-  print_endline "--- Initializing Portfolio ---";
-  let my_portfolio = [] in
+let view_portfolio (p : portfolio) : unit =
+  Printf.printf "------ Portfolio ------\n";
+  if p = [] then
+    Printf.printf "Portfolio is empty.\n"
+  else (
+    print_portfolio p;
+    let total_value = total_portfolio_value p in
+    let total_gain = overall_gain_loss p in
+    Printf.printf "\n";
+    Printf.printf "Total Current Value: $%s\n" (string_of_float2 total_value);
+    Printf.printf "Overall Gain/Loss:  $%s\n" (string_of_float2 total_gain);
+    Printf.printf "------------------------\n"
+  )
 
-  (* Test: Add Stocks *)
-  let s1 = { symbol = "AAPL"; quantity = 10.0; purchase_price = 150.0; current_price = 155.0 } in
-  let s2 = { symbol = "GOOG"; quantity = 5.0; purchase_price = 2800.0; current_price = 2750.0 } in
-  let s3 = { symbol = "TSLA"; quantity = 20.0; purchase_price = 200.0; current_price = 210.0 } in
-  
-  let p1 = add_stock my_portfolio s1 in
-  let p2 = add_stock p1 s2 in
-  let p3 = add_stock p2 s3 in
-  
-  print_endline "\n--- Current Portfolio ---";
+(* ---------- Test Cases ---------- *)
+
+let test_find_stock () =
+  let p =
+    [
+      { symbol = "AAPL"; quantity = 10; purchase_price = 150.0; current_price = 170.0 };
+      { symbol = "MSFT"; quantity = 5; purchase_price = 300.0; current_price = 310.0 };
+    ]
+  in
+  (match find_stock "aapl" p with
+   | None -> Printf.printf "TEST find_stock AAPL: FAILED (expected Some).\n"
+   | Some s ->
+       Printf.printf "TEST find_stock AAPL: PASSED (found %s).\n" s.symbol);
+  (match find_stock "GOOG" p with
+   | None ->
+       Printf.printf "TEST find_stock GOOG: PASSED (correctly not found).\n"
+   | Some _ ->
+       Printf.printf "TEST find_stock GOOG: FAILED (should not find).\n")
+
+let test_add_and_remove () =
+  let empty : portfolio = [] in
+  let s1 = { symbol = "AAPL"; quantity = 10; purchase_price = 150.0; current_price = 160.0 } in
+  let s2 = { symbol = "MSFT"; quantity = 5; purchase_price = 300.0; current_price = 305.0 } in
+  let p1 = add_stock s1 empty in
+  let p2 = add_stock s2 p1 in
+  Printf.printf "TEST add_stock: portfolio after adding AAPL and MSFT:\n";
+  view_portfolio p2;
+
+  let p3 = remove_stock "AAPL" p2 in
+  Printf.printf "TEST remove_stock existing (AAPL removed):\n";
   view_portfolio p3;
 
-  (* Test: Calculations *)
-  Printf.printf "\nTotal Value: %.2f\n" (get_total_value p3);
-  Printf.printf "Overall Gain/Loss: %.2f\n" (get_overall_gain_loss p3);
+  let p4 = remove_stock "GOOG" p3 in
+  Printf.printf "TEST remove_stock non-existing (GOOG - no change expected):\n";
+  view_portfolio p4
 
-  (* Test: Update Price *)
-  print_endline "\n--- Updating AAPL Price to 180.0 ---";
-  let p4 = update_price p3 "AAPL" 180.0 in
-  view_portfolio p4;
-  Printf.printf "New Overall Gain/Loss: %.2f\n" (get_overall_gain_loss p4);
+let test_update_price () =
+  let p =
+    [
+      { symbol = "AAPL"; quantity = 10; purchase_price = 150.0; current_price = 150.0 };
+      { symbol = "TSLA"; quantity = 3; purchase_price = 700.0; current_price = 650.0 };
+    ]
+  in
+  Printf.printf "TEST update_price - before:\n";
+  view_portfolio p;
 
-  (* Test: Remove Stock *)
-  print_endline "\n--- Removing GOOG ---";
-  let p5 = remove_stock p4 "GOOG" in
-  view_portfolio p5;
+  let p1 = update_price "AAPL" 180.0 p in
+  Printf.printf "After updating AAPL price to 180:\n";
+  view_portfolio p1;
 
-  (* Test: Edge Cases *)
-  print_endline "\n--- Edge Case: Updating non-existent stock (MSFT) ---";
-  let p6 = update_price p5 "MSFT" 300.0 in
-  (* Should look exactly the same as p5 *)
-  view_portfolio p6; 
-  
-  print_endline "\n--- Edge Case: Removing non-existent stock (AMZN) ---";
-  let p7 = remove_stock p6 "AMZN" in
-  view_portfolio p7;
+  let p2 = update_price "GOOG" 2000.0 p1 in
+  Printf.printf "After trying to update GOOG (non-existing):\n";
+  view_portfolio p2
+
+let test_totals () =
+  let p =
+    [
+      { symbol = "AAPL"; quantity = 10; purchase_price = 150.0; current_price = 170.0 };
+      { symbol = "MSFT"; quantity = 5; purchase_price = 300.0; current_price = 290.0 };
+    ]
+  in
+  let total_value = total_portfolio_value p in
+  let total_gain = overall_gain_loss p in
+  Printf.printf "TEST totals:\n";
+  view_portfolio p;
+  Printf.printf "Computed total value: $%s\n" (string_of_float2 total_value);
+  Printf.printf "Computed overall gain/loss: $%s\n" (string_of_float2 total_gain)
+
+let () =
+  Printf.printf "Running Financial Portfolio Manager tests...\n\n";
+  test_find_stock ();
+  Printf.printf "\n";
+  test_add_and_remove ();
+  Printf.printf "\n";
+  test_update_price ();
+  Printf.printf "\n";
+  test_totals ();
+  Printf.printf "\nAll tests executed.\n"
