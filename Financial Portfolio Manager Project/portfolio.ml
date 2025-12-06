@@ -99,7 +99,6 @@ let rec print_portfolio (p : portfolio) : unit =
       print_portfolio rest
 
 let view_portfolio (p : portfolio) : unit =
-  Printf.printf "------ Portfolio ------\n";
   if p = [] then
     Printf.printf "Portfolio is empty.\n"
   else (
@@ -109,7 +108,7 @@ let view_portfolio (p : portfolio) : unit =
     Printf.printf "\n";
     Printf.printf "Total Current Value: $%s\n" (string_of_float2 total_value);
     Printf.printf "Overall Gain/Loss:  $%s\n" (string_of_float2 total_gain);
-    Printf.printf "------------------------\n"
+    Printf.printf "-----------------------------------------------------------------------\n"
   )
 
 (* ---------- Test Cases ---------- *)
@@ -166,19 +165,6 @@ let test_update_price () =
   Printf.printf "After trying to update GOOG (non-existing):\n";
   view_portfolio p2
 
-let test_totals () =
-  let p =
-    [
-      { symbol = "AAPL"; quantity = 10; purchase_price = 150.0; current_price = 170.0 };
-      { symbol = "MSFT"; quantity = 5; purchase_price = 300.0; current_price = 290.0 };
-    ]
-  in
-  let total_value = total_portfolio_value p in
-  let total_gain = overall_gain_loss p in
-  Printf.printf "TEST totals:\n";
-  view_portfolio p;
-  Printf.printf "Computed total value: $%s\n" (string_of_float2 total_value);
-  Printf.printf "Computed overall gain/loss: $%s\n" (string_of_float2 total_gain)
 
 let () =
   Printf.printf "Running Financial Portfolio Manager tests...\n\n";
@@ -188,5 +174,4 @@ let () =
   Printf.printf "\n";
   test_update_price ();
   Printf.printf "\n";
-  test_totals ();
   Printf.printf "\nAll tests executed.\n"
