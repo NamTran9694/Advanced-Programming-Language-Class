@@ -1,0 +1,95 @@
+===========================================================================================
+ Financial Portfolio Manager
+ Test Case Documentation
+===========================================================================================
+
+This file describes all test cases used to verify the functionality
+of the Portfolio Manager implementation in OCaml. Each section corresponds
+to one of the major features required in the assignment.
+
+--------------------------------------------------------------------------------------------
+TEST 1: find_stock (Search Function)
+--------------------------------------------------------------------------------------------
+
+Input Portfolio:
+  AAPL: quantity=10, buy=150.0, current=170.0
+  MSFT: quantity=5, buy=300.0, current=310.0
+
+Test Cases:
+1. find_stock "aapl"
+   Expected: Some stock record for AAPL
+   Purpose: Verify case-insensitive symbol lookup.
+
+2. find_stock "GOOG"
+   Expected: None
+   Purpose: Validate behavior when searching for a symbol not in portfolio.
+
+
+--------------------------------------------------------------------------------------------
+TEST 2: add_stock
+--------------------------------------------------------------------------------------------
+
+Initial Portfolio: []
+
+Steps:
+1. Add AAPL (10 shares @ $150.0, current $160.0)
+   Expected: Portfolio = [AAPL]
+
+2. Add MSFT (5 shares @ $300.0, current $305.0)
+   Expected: Portfolio = [AAPL; MSFT]
+
+3. Add AAPL again (replace existing)
+   Expected: Updated AAPL replaces old entry
+   Purpose: Confirm replacement behavior for duplicate symbols.
+
+
+--------------------------------------------------------------------------------------------
+TEST 3: remove_stock
+--------------------------------------------------------------------------------------------
+
+Portfolio:
+  AAPL, MSFT
+
+Test Cases:
+1. remove_stock "AAPL"
+   Expected: Portfolio contains only MSFT
+   Purpose: Confirm removal of existing symbol.
+
+2. remove_stock "GOOG"
+   Expected: Portfolio unchanged
+   Purpose: Validate no-crash and no-change behavior for non-existing symbol.
+
+
+--------------------------------------------------------------------------------------------
+TEST 4: update_price
+--------------------------------------------------------------------------------------------
+
+Portfolio:
+  AAPL: purchase=150.0, current=150.0
+  TSLA: purchase=700.0, current=650.0
+
+Test Cases:
+1. update_price "AAPL" 180.0
+   Expected: AAPL current price updated to 180.0
+   Purpose: Verify correct field update using record copy.
+
+2. update_price "GOOG" 2000.0
+   Expected: No changes to portfolio
+   Purpose: Confirm safe handling of non-existing stock symbols.
+
+
+--------------------------------------------------------------------------------------------
+TEST 5: view_portfolio (Display)
+--------------------------------------------------------------------------------------------
+
+Tests:
+1. Non-empty portfolio → full list printed + totals.
+2. Empty portfolio → "Portfolio is empty."
+
+Purpose:
+  Validate formatted output and handling of edge cases.
+
+
+===========================================================================================
+ END OF TEST CASE DOCUMENTATION
+===========================================================================================
