@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-/* --------- Helper: compare function for qsort ---------- */
+/* Helper: compare function for qsort  */
 int compare_ints(const void *a, const void *b) {
     int ia = *(const int *)a;
     int ib = *(const int *)b;
@@ -10,7 +10,7 @@ int compare_ints(const void *a, const void *b) {
     return 0;
 }
 
-/* --------- Mean (procedural style) ---------- */
+/*  Mean (procedural style)  */
 double mean(int *arr, int n) {
     long long sum = 0; // use long long in case of large numbers
     for (int i = 0; i < n; i++) {
@@ -19,7 +19,7 @@ double mean(int *arr, int n) {
     return (double)sum / (double)n;
 }
 
-/* --------- Median (sorts array in-place) ---------- */
+/*  Median (sorts array in-place)  */
 double median(int *arr, int n) {
     qsort(arr, n, sizeof(int), compare_ints);
 
@@ -34,7 +34,7 @@ double median(int *arr, int n) {
     }
 }
 
-/* --------- Mode(s) ----------*/
+/*  Mode(s)  */
 void modes(int *arr, int n) {
     // First pass: find max frequency
     int current_val = arr[0];
@@ -87,7 +87,7 @@ void modes(int *arr, int n) {
     printf(" (frequency: %d)\n", max_count);
 }
 
-/* --------- main: procedural orchestration ---------- */
+/*  Main: procedural orchestration  */
 int main(int argc, char *argv[]) {
     if (argc < 2) {
         fprintf(stderr, "Usage: %s num1 num2 ...\n", argv[0]);
